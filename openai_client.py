@@ -42,7 +42,7 @@ class RateLimiter:
 class OpenAIClient:
     def __init__(self):
         self.client = openai.OpenAI(api_key=OPENAI_API_KEY)
-        self.rate_limiter = RateLimiter(max_requests_per_minute=50)  # Более консервативный лимит
+        self.rate_limiter = RateLimiter(max_requests_per_minute=90)  # GPT-3.5-turbo имеет более высокие лимиты
         self.request_queue = deque()
         self.processing = False
     
@@ -116,7 +116,7 @@ class OpenAIClient:
         try:
             response = self._make_request_with_backoff(
                 self.client.chat.completions.create,
-                model="gpt-4o",
+                model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
@@ -174,7 +174,7 @@ class OpenAIClient:
         try:
             response = self._make_request_with_backoff(
                 self.client.chat.completions.create,
-                model="gpt-4o",
+                model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
@@ -217,7 +217,7 @@ class OpenAIClient:
         try:
             response = self._make_request_with_backoff(
                 self.client.chat.completions.create,
-                model="gpt-4o",
+                model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": content}

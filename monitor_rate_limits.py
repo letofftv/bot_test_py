@@ -48,7 +48,7 @@ class OpenAIRateLimitMonitor:
                 f"{self.base_url}/chat/completions",
                 headers=self.headers,
                 json={
-                    "model": "gpt-4o",
+                    "model": "gpt-3.5-turbo",
                     "messages": [{"role": "user", "content": "Hello"}],
                     "max_tokens": 10
                 }
