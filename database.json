@@ -5,8 +5,33 @@
       "username": "test_user",
       "first_name": "Test",
       "last_name": "User"
+    },
+    "196035876": {
+      "state": "MENU"
     }
   },
   "sessions": {},
-  "cards": {}
+  "cards": {},
+  "psychological_maps": {
+    "map_196035876_1": {
+      "user_id": 196035876,
+      "data": {
+        "type": "Базовая",
+        "questions": [
+          "Как бы вы описали свое текущее эмоциональное состояние?",
+          "Какие события в последнее время повлияли на ваше настроение?",
+          "Как вы справляетесь со стрессом в повседневной жизни?",
+          "Что для вас является источником радости и удовлетворения?"
+        ],
+        "answers": [
+          "нормуль",
+          "тест бота",
+          "легко",
+          "счастье близких и личный успех"
+        ],
+        "map_text": "Извините, произошла ошибка при создании психологической карты. Попробуйте позже. Ошибка: Error code: 403 - {'error': {'code': 'unsupported_country_region_territory', 'message': 'Country, region, or territory not supported', 'param': None, 'type': 'request_forbidden'}}"
+      },
+      "status": "pending"
+    }
+  }
 }
