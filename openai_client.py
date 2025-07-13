@@ -1,4 +1,5 @@
 import openai
+import time
 from typing import Dict, Any, List
 from config import OPENAI_API_KEY
 
@@ -31,21 +32,36 @@ class OpenAIClient:
 Пожалуйста, предоставь профессиональную психологическую консультацию.
 """
 
-        try:
-            response = self.client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                max_tokens=1000,
-                temperature=0.7
-            )
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = self.client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    max_tokens=1000,
+                    temperature=0.7
+                )
+                
+                return response.choices[0].message.content.strip() if response.choices[0].message.content else "Извините, не удалось получить ответ."
             
-            return response.choices[0].message.content.strip() if response.choices[0].message.content else "Извините, не удалось получить ответ."
-        
-        except Exception as e:
-            return f"Извините, произошла ошибка при обработке вашего запроса. Попробуйте позже. Ошибка: {str(e)}"
+            except openai.RateLimitError:
+                if attempt < max_retries - 1:
+                    wait_time = (2 ** attempt) * 2  # Экспоненциальная задержка
+                    time.sleep(wait_time)
+                    continue
+                return "Извините, сервер OpenAI перегружен. Попробуйте позже."
+            
+            except openai.APIError as e:
+                if attempt < max_retries - 1:
+                    time.sleep(2)
+                    continue
+                return f"Извините, произошла ошибка API OpenAI. Попробуйте позже. Ошибка: {str(e)}"
+            
+            except Exception as e:
+                return f"Извините, произошла ошибка при обработке вашего запроса. Попробуйте позже. Ошибка: {str(e)}"
     
     def generate_psychological_map(self, answers: List[str], questions: List[str], map_type: str) -> str:
         """Генерирует психологическую карту на основе ответов пользователя"""
@@ -79,21 +95,36 @@ class OpenAIClient:
 Создай подробную психологическую карту на основе этих ответов. Структурируй информацию по разделам и дай практические рекомендации.
 """
 
-        try:
-            response = self.client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                max_tokens=2000,
-                temperature=0.7
-            )
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = self.client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    max_tokens=2000,
+                    temperature=0.7
+                )
+                
+                return response.choices[0].message.content.strip() if response.choices[0].message.content else "Извините, не удалось получить ответ."
             
-            return response.choices[0].message.content.strip() if response.choices[0].message.content else "Извините, не удалось получить ответ."
-        
-        except Exception as e:
-            return f"Извините, произошла ошибка при создании психологической карты. Попробуйте позже. Ошибка: {str(e)}"
+            except openai.RateLimitError:
+                if attempt < max_retries - 1:
+                    wait_time = (2 ** attempt) * 2
+                    time.sleep(wait_time)
+                    continue
+                return "Извините, сервер OpenAI перегружен. Попробуйте позже."
+            
+            except openai.APIError as e:
+                if attempt < max_retries - 1:
+                    time.sleep(2)
+                    continue
+                return f"Извините, произошла ошибка API OpenAI. Попробуйте позже. Ошибка: {str(e)}"
+            
+            except Exception as e:
+                return f"Извините, произошла ошибка при создании психологической карты. Попробуйте позже. Ошибка: {str(e)}"
     
     def moderate_content(self, content: str) -> Dict[str, Any]:
         """Модерирует контент на предмет безопасности"""
@@ -112,39 +143,52 @@ class OpenAIClient:
     "recommendation": "рекомендация"
 }"""
 
-        try:
-            response = self.client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": content}
-                ],
-                max_tokens=500,
-                temperature=0.3
-            )
-            
-            # Парсим JSON ответ
-            import json
+        max_retries = 2
+        for attempt in range(max_retries):
             try:
-                result = json.loads(response.choices[0].message.content.strip()) if response.choices[0].message.content else {
-                    "is_safe": True,
-                    "risk_level": "low",
-                    "concerns": [],
-                    "recommendation": "Контент прошел проверку"
-                }
-                return result
-            except json.JSONDecodeError:
+                response = self.client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": content}
+                    ],
+                    max_tokens=500,
+                    temperature=0.3
+                )
+                
+                # Парсим JSON ответ
+                import json
+                try:
+                    result = json.loads(response.choices[0].message.content.strip()) if response.choices[0].message.content else {
+                        "is_safe": True,
+                        "risk_level": "low",
+                        "concerns": [],
+                        "recommendation": "Контент прошел проверку"
+                    }
+                    return result
+                except json.JSONDecodeError:
+                    return {
+                        "is_safe": True,
+                        "risk_level": "low",
+                        "concerns": [],
+                        "recommendation": "Контент прошел проверку"
+                    }
+            
+            except (openai.RateLimitError, openai.APIError):
+                if attempt < max_retries - 1:
+                    time.sleep(1)
+                    continue
                 return {
                     "is_safe": True,
                     "risk_level": "low",
                     "concerns": [],
-                    "recommendation": "Контент прошел проверку"
+                    "recommendation": "Ошибка модерации, контент пропущен"
                 }
-        
-        except Exception as e:
-            return {
-                "is_safe": True,
-                "risk_level": "low",
-                "concerns": [],
-                "recommendation": "Ошибка модерации, контент пропущен"
-            } 
+            
+            except Exception as e:
+                return {
+                    "is_safe": True,
+                    "risk_level": "low",
+                    "concerns": [],
+                    "recommendation": "Ошибка модерации, контент пропущен"
+                } 

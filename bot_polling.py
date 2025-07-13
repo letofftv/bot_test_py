@@ -231,14 +231,22 @@ def main():
     app.add_handler(conv_handler)
     app.add_handler(CommandHandler("help", help_command))
     
-    # Запускаем бота
+    # Добавляем обработчик ошибок
+    async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+        logging.error(f"Exception while handling an update: {context.error}")
+    
+    app.add_error_handler(error_handler)
+    
+    # Запускаем бота с улучшенными настройками
     logging.info("Starting bot with polling...")
     app.run_polling(
         poll_interval=1.0,
         timeout=30,
         bootstrap_retries=5,
         read_timeout=30,
-        write_timeout=30
+        write_timeout=30,
+        drop_pending_updates=True,  # Игнорируем старые сообщения
+        allowed_updates=["message", "callback_query"]  # Только нужные типы обновлений
     )
 
 if __name__ == "__main__":
