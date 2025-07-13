@@ -3,7 +3,7 @@ import os
 from flask import Flask, request
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
-from config import TELEGRAM_TOKEN, ADMIN_ID, BASIC_QUESTIONS, EXTENDED_QUESTIONS, INTERNAL_DOMAIN
+from config import TELEGRAM_TOKEN, ADMIN_ID, BASIC_QUESTIONS, EXTENDED_QUESTIONS, EXTERNAL_DOMAIN
 from database import Database
 from openai_client import OpenAIClient
 
@@ -196,7 +196,7 @@ def health():
 # Инициализация webhook при запуске
 def init_webhook():
     port = int(os.environ.get('PORT', 5000))
-    webhook_url = f"https://{INTERNAL_DOMAIN}/webhook"
+    webhook_url = f"https://{EXTERNAL_DOMAIN}/webhook"
     
     logging.info(f"Bot token: {TELEGRAM_TOKEN[:10]}...")
     logging.info(f"Webhook URL: {webhook_url}")
