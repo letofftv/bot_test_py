@@ -78,7 +78,7 @@ async def consult_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     try:
         # Получаем ответ от OpenAI
-        answer = await ai.get_psychological_consultation(question)
+        answer = ai.get_psychological_consultation(question)
         
         # Отправляем ответ пользователю
         await update.message.reply_text(answer, reply_markup=main_keyboard)
@@ -149,7 +149,7 @@ async def map_questions_handler(update: Update, context: ContextTypes.DEFAULT_TY
         
         try:
             # Генерируем карту через OpenAI
-            map_text = await ai.generate_psychological_map(answers, questions, context.user_data['map_type'])
+            map_text = ai.generate_psychological_map(answers, questions, context.user_data['map_type'])
             
             # Сохраняем карту в БД на модерацию
             map_id = db.save_psychological_map(user_id, {

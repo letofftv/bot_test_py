@@ -9,7 +9,7 @@ class OpenAIClient:
     def __init__(self):
         self.client = openai.OpenAI(api_key=OPENAI_API_KEY)
     
-    async def get_psychological_consultation(self, user_question: str, user_context: str = "") -> str:
+    def get_psychological_consultation(self, user_question: str, user_context: str = "") -> str:
         """Получает психологическую консультацию от GPT-4"""
         
         system_prompt = """Ты - опытный психолог-консультант. Твоя задача - предоставить профессиональную психологическую поддержку и консультацию.
@@ -47,7 +47,7 @@ class OpenAIClient:
         except Exception as e:
             return f"Извините, произошла ошибка при обработке вашего запроса. Попробуйте позже. Ошибка: {str(e)}"
     
-    async def generate_psychological_map(self, answers: List[str], questions: List[str], map_type: str) -> str:
+    def generate_psychological_map(self, answers: List[str], questions: List[str], map_type: str) -> str:
         """Генерирует психологическую карту на основе ответов пользователя"""
         
         system_prompt = """Ты - профессиональный психолог, специализирующийся на создании психологических карт личности. 
@@ -95,7 +95,7 @@ class OpenAIClient:
         except Exception as e:
             return f"Извините, произошла ошибка при создании психологической карты. Попробуйте позже. Ошибка: {str(e)}"
     
-    async def moderate_content(self, content: str) -> Dict[str, Any]:
+    def moderate_content(self, content: str) -> Dict[str, Any]:
         """Модерирует контент на предмет безопасности"""
         
         system_prompt = """Ты - модератор контента. Проверь следующий текст на предмет:
