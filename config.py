@@ -4,10 +4,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Telegram Bot Token
-TELEGRAM_TOKEN = "7548616316:AAHppd9JUUoDHJ1bntK2OVvCno1cGq0G03U"
+TELEGRAM_TOKEN = os.getenv("BOT_TOKEN")
 
 # OpenAI API Key
-OPENAI_API_KEY = "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"
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Admin ID for moderation
 ADMIN_ID = 196035876
