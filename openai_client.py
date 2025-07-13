@@ -6,6 +6,7 @@ from typing import Dict, Any, List
 from config import OPENAI_API_KEY
 from collections import deque
 import logging
+from local_responses import LocalResponseSystem
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -45,6 +46,7 @@ class OpenAIClient:
         self.rate_limiter = RateLimiter(max_requests_per_minute=90)  # GPT-3.5-turbo имеет более высокие лимиты
         self.request_queue = deque()
         self.processing = False
+        self.local_system = LocalResponseSystem()  # Локальная система как fallback
     
     def _make_request_with_backoff(self, request_func, *args, **kwargs):
         """Выполняет запрос с экспоненциальной задержкой при ошибках"""
@@ -127,13 +129,23 @@ class OpenAIClient:
             
             return response.choices[0].message.content.strip() if response.choices[0].message.content else "Извините, не удалось получить ответ."
         
-        except openai.RateLimitError:
-            logger.error("Rate limit exceeded for consultation request")
-            return "Извините, сервер OpenAI перегружен. Попробуйте через несколько минут."
+        except openai.RateLimitError as e:
+            error_message = str(e)
+            if "insufficient_quota" in error_message.lower():
+                logger.error("OpenAI quota exceeded - insufficient funds")
+                return "Извините, превышен лимит использования OpenAI API. Обратитесь к администратору для пополнения баланса."
+            else:
+                logger.error("Rate limit exceeded for consultation request")
+                return "Извините, сервер OpenAI перегружен. Попробуйте через несколько минут."
         
         except openai.APIError as e:
-            logger.error(f"OpenAI API error: {e}")
-            return "Извините, произошла ошибка API OpenAI. Попробуйте позже."
+            error_message = str(e)
+            if "unsupported_country" in error_message.lower() or "region" in error_message.lower():
+                logger.error("OpenAI not supported in this region, using local system")
+                return self.local_system.get_consultation_response(user_question)
+            else:
+                logger.error(f"OpenAI API error: {e}")
+                return "Извините, произошла ошибка API OpenAI. Попробуйте позже."
         
         except Exception as e:
             logger.error(f"Unexpected error in consultation: {e}")
@@ -185,13 +197,23 @@ class OpenAIClient:
             
             return response.choices[0].message.content.strip() if response.choices[0].message.content else "Извините, не удалось получить ответ."
         
-        except openai.RateLimitError:
-            logger.error("Rate limit exceeded for map generation")
-            return "Извините, сервер OpenAI перегружен. Попробуйте создать карту позже."
+        except openai.RateLimitError as e:
+            error_message = str(e)
+            if "insufficient_quota" in error_message.lower():
+                logger.error("OpenAI quota exceeded for map generation - insufficient funds")
+                return "Извините, превышен лимит использования OpenAI API. Обратитесь к администратору для пополнения баланса."
+            else:
+                logger.error("Rate limit exceeded for map generation")
+                return "Извините, сервер OpenAI перегружен. Попробуйте создать карту позже."
         
         except openai.APIError as e:
-            logger.error(f"OpenAI API error in map generation: {e}")
-            return "Извините, произошла ошибка API OpenAI при создании карты. Попробуйте позже."
+            error_message = str(e)
+            if "unsupported_country" in error_message.lower() or "region" in error_message.lower():
+                logger.error("OpenAI not supported in this region for map generation, using local system")
+                return self.local_system.generate_psychological_map(answers, questions, map_type)
+            else:
+                logger.error(f"OpenAI API error in map generation: {e}")
+                return "Извините, произошла ошибка API OpenAI при создании карты. Попробуйте позже."
         
         except Exception as e:
             logger.error(f"Unexpected error in map generation: {e}")
