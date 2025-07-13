@@ -1,0 +1,12 @@
+{
+  "users": {
+    "12345": {
+      "id": 12345,
+      "username": "test_user",
+      "first_name": "Test",
+      "last_name": "User"
+    }
+  },
+  "sessions": {},
+  "cards": {}
+}
