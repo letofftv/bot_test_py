@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Локальная система ответов как альтернатива OpenAI API
+Локальная система психологических ответов и генерации карт
 """
 
 import random
@@ -78,6 +78,9 @@ class LocalResponseSystem:
         else:
             # Возвращаем случайный общий ответ
             return random.choice(self.consultation_responses)
+    
+    def get_psychological_consultation(self, question: str) -> str:
+        return self.get_consultation_response(question)
     
     def generate_psychological_map(self, answers: List[str], questions: List[str], map_type: str) -> str:
         """Генерирует локальную психологическую карту"""

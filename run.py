@@ -21,10 +21,6 @@ def main():
         logging.error("BOT_TOKEN environment variable is not set")
         sys.exit(1)
     
-    if not os.getenv('OPENAI_API_KEY'):
-        logging.error("OPENAI_API_KEY environment variable is not set")
-        sys.exit(1)
-    
     logging.info("Starting psychological bot...")
     
     try:

@@ -5,7 +5,7 @@ from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
 from config import TELEGRAM_TOKEN, ADMIN_ID, BASIC_QUESTIONS, EXTENDED_QUESTIONS
 from database import Database
-from openai_client import OpenAIClient
+from local_responses import LocalResponseSystem
 
 # Состояния для ConversationHandler
 MENU, CONSULT, MAP_TYPE, MAP_QUESTIONS, WAITING_MODERATION = range(5)
@@ -29,7 +29,7 @@ logging.basicConfig(
 
 # Инициализация
 db = Database()
-ai = OpenAIClient()
+ai = LocalResponseSystem()
 
 # Rate limiting для пользователей
 user_last_request = defaultdict(float)
@@ -87,8 +87,21 @@ async def consult_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text or not update.effective_user:
         return MENU
     
-    user_id = update.effective_user.id
+    user = update.effective_user
+    user_id = user.id
+    username = user.username or '-'
+    phone = '-'
     question = update.message.text
+    
+    # Пересылаем админу вопрос пользователя психологу
+    admin_text = (
+        f"📝 <b>Вопрос психологу</b>\n"
+        f"ID: <code>{user_id}</code>\n"
+        f"Ник: @{username}\n"
+        f"Телефон: {phone}\n"
+        f"\n<b>Вопрос:</b>\n{question}"
+    )
+    await context.bot.send_message(chat_id=ADMIN_ID, text=admin_text, parse_mode='HTML')
     
     # Проверяем rate limiting
     if not check_user_rate_limit(user_id):
@@ -104,7 +117,6 @@ async def consult_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     processing_msg = await update.message.reply_text("Ваш вопрос принят. Пожалуйста, подождите, идет обработка...")
     
     try:
-        # Получаем ответ от OpenAI
         answer = ai.get_psychological_consultation(question)
         
         # Отправляем ответ пользователю
@@ -181,7 +193,6 @@ async def map_questions_handler(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_text("Спасибо за ваши ответы! Формируется психологическая карта...")
         
         try:
-            # Генерируем карту через OpenAI
             map_text = ai.generate_psychological_map(answers, questions, context.user_data['map_type'])
             
             # Сохраняем карту в БД на модерацию
@@ -203,6 +214,23 @@ async def map_questions_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 chat_id=ADMIN_ID,
                 text=f"Новая психологическая карта на модерацию (ID: {map_id}) от пользователя {user_id}."
             )
+            
+            # Пересылаем админу все вопросы и ответы пользователя
+            user = update.effective_user
+            user_id = user.id
+            username = user.username or '-'
+            phone = '-'
+            qa_lines = [f"<b>{i+1}. {q}</b>\n{a}" for i, (q, a) in enumerate(zip(questions, answers))]
+            qa_text = '\n\n'.join(qa_lines)
+            admin_text = (
+                f"🗺 <b>Ответы пользователя на вопросы для генерации карты</b>\n"
+                f"ID: <code>{user_id}</code>\n"
+                f"Ник: @{username}\n"
+                f"Телефон: {phone}\n"
+                f"Тип карты: {context.user_data['map_type']}\n\n"
+                f"<b>Вопросы и ответы:</b>\n{qa_text}"
+            )
+            await context.bot.send_message(chat_id=ADMIN_ID, text=admin_text, parse_mode='HTML')
             
         except Exception as e:
             logging.error(f"Error in map_questions_handler: {e}")

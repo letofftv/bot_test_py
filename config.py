@@ -6,9 +6,6 @@ load_dotenv()
 # Telegram Bot Token
 TELEGRAM_TOKEN = os.getenv("BOT_TOKEN")
 
-# OpenAI API Key
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
 # Admin ID for moderation
 ADMIN_ID = 196035876
 
