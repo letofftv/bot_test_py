@@ -9,7 +9,7 @@ from local_responses import LocalResponseSystem
 from psychological_maps import PSYCHOLOGICAL_MAPS
 
 # Состояния для ConversationHandler
-MENU, CONSULT, MAP_RULES, MAP_SELECT, MAP_DESCRIPTION, MAP_TYPE, MAP_QUESTIONS, WAITING_MODERATION = range(8)
+MENU, CONSULT, MAP_SELECT, MAP_TYPE, MAP_QUESTIONS, WAITING_MODERATION = range(6)
 
 # Клавиатуры
 main_keyboard = ReplyKeyboardMarkup([
@@ -80,9 +80,14 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.set_user_state(user_id, "CONSULT")
         return CONSULT
     elif text.startswith("2"):
+        # Сразу отправляем приветствие и меню выбора карты
         await update.message.reply_text(MAP_RULES_TEXT, reply_markup=ReplyKeyboardRemove())
-        db.set_user_state(user_id, "MAP_RULES")
-        return MAP_RULES
+        await update.message.reply_text(
+            "Выберите одну из 15 психологических карт:",
+            reply_markup=map_select_keyboard
+        )
+        db.set_user_state(user_id, "MAP_SELECT")
+        return MAP_SELECT
     else:
         await update.message.reply_text("Пожалуйста, выберите действие из меню.")
         return MENU
@@ -124,16 +129,6 @@ async def consult_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         db.set_user_state(user_id, "MENU")
     return MENU
-
-async def map_rules_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message or not update.effective_user:
-        return MENU
-    await update.message.reply_text(
-        "Выберите одну из 15 психологических карт:",
-        reply_markup=map_select_keyboard
-    )
-    db.set_user_state(update.effective_user.id, "MAP_SELECT")
-    return MAP_SELECT
 
 async def map_select_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text or not update.effective_user:
@@ -283,7 +278,6 @@ def main():
         states={
             MENU: [MessageHandler(filters.TEXT & ~filters.COMMAND, menu_handler)],
             CONSULT: [MessageHandler(filters.TEXT & ~filters.COMMAND, consult_handler)],
-            MAP_RULES: [MessageHandler(filters.TEXT & ~filters.COMMAND, map_rules_handler)],
             MAP_SELECT: [MessageHandler(filters.TEXT & ~filters.COMMAND, map_select_handler)],
             MAP_TYPE: [MessageHandler(filters.TEXT & ~filters.COMMAND, map_type_handler)],
             MAP_QUESTIONS: [MessageHandler(filters.TEXT & ~filters.COMMAND, map_questions_handler)],
