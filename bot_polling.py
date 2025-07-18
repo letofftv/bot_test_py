@@ -3,7 +3,7 @@ import time
 from collections import defaultdict
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
-from config import TELEGRAM_TOKEN, ADMIN_ID
+from config import TELEGRAM_TOKEN, ADMIN_IDS
 from database import Database
 from local_responses import LocalResponseSystem
 from psychological_maps import PSYCHOLOGICAL_MAPS
@@ -107,7 +107,8 @@ async def consult_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Телефон: {phone}\n"
         f"\n<b>Вопрос:</b>\n{question}"
     )
-    await context.bot.send_message(chat_id=ADMIN_ID, text=admin_text, parse_mode='HTML')
+    for admin_id in ADMIN_IDS:
+        await context.bot.send_message(chat_id=admin_id, text=admin_text, parse_mode='HTML')
     if not check_user_rate_limit(user_id):
         remaining_time = MIN_REQUEST_INTERVAL - (time.time() - user_last_request.get(user_id, 0))
         await update.message.reply_text(
@@ -235,7 +236,8 @@ async def map_questions_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 f"Тип анкеты: {map_type}\n\n"
                 f"<b>Вопросы и ответы:</b>\n{qa_text}"
             )
-            await context.bot.send_message(chat_id=ADMIN_ID, text=admin_text, parse_mode='HTML')
+            for admin_id in ADMIN_IDS:
+                await context.bot.send_message(chat_id=admin_id, text=admin_text, parse_mode='HTML')
         except Exception as e:
             logging.error(f"Error in map_questions_handler: {e}")
             await update.message.reply_text(
