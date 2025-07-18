@@ -17,13 +17,19 @@ main_keyboard = ReplyKeyboardMarkup([
     ["2️⃣ Создать психологическую карту"]
 ], resize_keyboard=True)
 
-# Формируем клавиатуру выбора карты
+# Клавиатура с навигацией
+navigation_keyboard = ReplyKeyboardMarkup([
+    ["🔙 Назад", "🏠 Главное меню"]
+], resize_keyboard=True)
+
+# Формируем клавиатуру выбора карты с навигацией
 map_names = [[f"{i+1}. {m['name']}"] for i, m in enumerate(PSYCHOLOGICAL_MAPS)]
-map_select_keyboard = ReplyKeyboardMarkup(map_names, resize_keyboard=True)
+map_select_keyboard = ReplyKeyboardMarkup(map_names + [["🔙 Назад", "🏠 Главное меню"]], resize_keyboard=True)
 
 map_type_keyboard = ReplyKeyboardMarkup([
     ["Базовая анкета (4 вопроса)"],
-    ["Расширенная анкета (10 вопросов)"]
+    ["Расширенная анкета (10 вопросов)"],
+    ["🔙 Назад", "🏠 Главное меню"]
 ], resize_keyboard=True)
 
 # Приветствия
@@ -33,7 +39,7 @@ MAP_RULES_TEXT = (
     "1. Пиши, как для себя — не как для других.\n"
     "Это пространство честного контакта с собой. Здесь не нужно «казаться лучше», «умнее» или «благополучнее». Никаких оценок, никакой критики. Карта — твой личный инструмент, и чем искреннее ты будешь, тем глубже и точнее она станет.\n"
     "2. Отвечай не как «правильно», а как на самом деле.\n"
-    "Забудь на время, как “принято”, “надо”, “ожидается”. Смотри в свой реальный опыт: что ты чувствуешь, что вызывает у тебя резонанс или отторжение. Даже если ответ «неудобный» — он, скорее всего, самый честный. Почувствуй, какие образы, воспоминания или телесные реакции приходят в ответ — именно они подскажут, что для тебя важно.\n"
+    "Забудь на время, как \"принято\", \"надо\", \"ожидается\". Смотри в свой реальный опыт: что ты чувствуешь, что вызывает у тебя резонанс или отторжение. Даже если ответ «неудобный» — он, скорее всего, самый честный. Почувствуй, какие образы, воспоминания или телесные реакции приходят в ответ — именно они подскажут, что для тебя важно.\n"
     "3. Дай себе время — и пиши развернуто.\n"
     "Ответ на каждый вопрос должен быть не короче 3–4 предложений. Лучше — больше. Старайся раскрывать примеры, эмоции, образы. Если чувствуешь паузу — дыши, смотри внутрь, вспоминай. Иногда одно слово, пришедшее из глубины, важнее десятка «правильных» формулировок."
 )
@@ -61,8 +67,125 @@ def check_user_rate_limit(user_id: int) -> bool:
     user_last_request[user_id] = now
     return True
 
+def save_navigation_state(context: ContextTypes.DEFAULT_TYPE, current_state: int, previous_state: int = None):
+    """Сохраняет состояние навигации"""
+    if context.user_data is None:
+        context.user_data = {}
+    
+    # Сохраняем стек состояний
+    if 'navigation_stack' not in context.user_data:
+        context.user_data['navigation_stack'] = []
+    
+    # Добавляем текущее состояние в стек
+    if previous_state is not None:
+        context.user_data['navigation_stack'].append(previous_state)
+    
+    context.user_data['current_state'] = current_state
+
+def get_previous_state(context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Получает предыдущее состояние из стека"""
+    if context.user_data is None or 'navigation_stack' not in context.user_data:
+        return MENU
+    
+    navigation_stack = context.user_data.get('navigation_stack', [])
+    if navigation_stack:
+        return navigation_stack.pop()
+    return MENU
+
+async def handle_navigation(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> int:
+    """Обрабатывает навигационные команды"""
+    if not update.message or not update.effective_user:
+        return MENU
+    
+    user_id = update.effective_user.id
+    
+    if text == "🔙 Назад":
+        previous_state = get_previous_state(context)
+        if previous_state == MENU:
+            # Если мы в главном меню, остаемся там
+            await update.message.reply_text(
+                "Вы уже в главном меню. Выберите действие:",
+                reply_markup=main_keyboard
+            )
+            return MENU
+        else:
+            # Возвращаемся к предыдущему состоянию
+            return await navigate_to_state(update, context, previous_state)
+    
+    elif text == "🏠 Главное меню":
+        # Очищаем стек навигации и возвращаемся в главное меню
+        if context.user_data:
+            context.user_data['navigation_stack'] = []
+            context.user_data['current_state'] = MENU
+        
+        await update.message.reply_text(
+            "Выберите действие:",
+            reply_markup=main_keyboard
+        )
+        db.set_user_state(user_id, "MENU")
+        return MENU
+    
+    return None  # Не навигационная команда
+
+async def navigate_to_state(update: Update, context: ContextTypes.DEFAULT_TYPE, target_state: int) -> int:
+    """Навигация к определенному состоянию"""
+    if not update.message or not update.effective_user:
+        return MENU
+    
+    user_id = update.effective_user.id
+    
+    if target_state == MENU:
+        await update.message.reply_text(
+            "Выберите действие:",
+            reply_markup=main_keyboard
+        )
+        db.set_user_state(user_id, "MENU")
+        return MENU
+    
+    elif target_state == MAP_SELECT:
+        await update.message.reply_text(
+            "Выберите одну из 15 психологических карт:",
+            reply_markup=map_select_keyboard
+        )
+        db.set_user_state(user_id, "MAP_SELECT")
+        return MAP_SELECT
+    
+    elif target_state == MAP_TYPE:
+        selected_map = context.user_data.get('selected_map')
+        if selected_map:
+            await update.message.reply_text(
+                f"<b>{selected_map['name']}</b>\n\n{selected_map['description']}\n\nВыберите тип анкеты:",
+                reply_markup=map_type_keyboard,
+                parse_mode='HTML'
+            )
+            db.set_user_state(user_id, "MAP_TYPE")
+            return MAP_TYPE
+    
+    # Если не удалось определить состояние, возвращаемся в главное меню
+    await update.message.reply_text(
+        "Выберите действие:",
+        reply_markup=main_keyboard
+    )
+    db.set_user_state(user_id, "MENU")
+    return MENU
+
+async def handle_non_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает нетекстовые сообщения"""
+    if not update.message:
+        return
+    
+    await update.message.reply_text(
+        "Пожалуйста, введите ответ текстом, чтобы я мог продолжить работу.",
+        reply_markup=ReplyKeyboardRemove()
+    )
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message and update.effective_user:
+        # Очищаем навигационный стек при старте
+        if context.user_data:
+            context.user_data['navigation_stack'] = []
+            context.user_data['current_state'] = MENU
+        
         await update.message.reply_text(
             "Добро пожаловать в психологический бот!\n\nВыберите действие:",
             reply_markup=main_keyboard
@@ -73,13 +196,22 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text or not update.effective_user:
         return MENU
+    
     text = update.message.text
     user_id = update.effective_user.id
+    
+    # Проверяем навигационные команды
+    navigation_result = await handle_navigation(update, context, text)
+    if navigation_result is not None:
+        return navigation_result
+    
     if text.startswith("1"):
-        await update.message.reply_text(CONSULT_WELCOME_TEXT, reply_markup=ReplyKeyboardRemove())
+        save_navigation_state(context, CONSULT, MENU)
+        await update.message.reply_text(CONSULT_WELCOME_TEXT, reply_markup=navigation_keyboard)
         db.set_user_state(user_id, "CONSULT")
         return CONSULT
     elif text.startswith("2"):
+        save_navigation_state(context, MAP_SELECT, MENU)
         # Сразу отправляем приветствие и меню выбора карты
         await update.message.reply_text(MAP_RULES_TEXT, reply_markup=ReplyKeyboardRemove())
         await update.message.reply_text(
@@ -95,11 +227,19 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def consult_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text or not update.effective_user:
         return MENU
+    
+    text = update.message.text
+    
+    # Проверяем навигационные команды
+    navigation_result = await handle_navigation(update, context, text)
+    if navigation_result is not None:
+        return navigation_result
+    
     user = update.effective_user
     user_id = user.id
     username = user.username or '-'
     phone = '-'
-    question = update.message.text
+    question = text
     admin_text = (
         f"📝 <b>Вопрос психологу</b>\n"
         f"ID: <code>{user_id}</code>\n"
@@ -134,7 +274,14 @@ async def consult_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def map_select_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text or not update.effective_user:
         return MAP_SELECT
+    
     text = update.message.text
+    
+    # Проверяем навигационные команды
+    navigation_result = await handle_navigation(update, context, text)
+    if navigation_result is not None:
+        return navigation_result
+    
     user_id = update.effective_user.id
     try:
         idx = int(text.split('.')[0].strip()) - 1
@@ -142,7 +289,10 @@ async def map_select_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     except Exception:
         await update.message.reply_text("Пожалуйста, выберите карту из списка.", reply_markup=map_select_keyboard)
         return MAP_SELECT
+    
     context.user_data['selected_map'] = selected_map
+    save_navigation_state(context, MAP_TYPE, MAP_SELECT)
+    
     await update.message.reply_text(
         f"<b>{selected_map['name']}</b>\n\n{selected_map['description']}\n\nВыберите тип анкеты:",
         reply_markup=map_type_keyboard,
@@ -154,15 +304,24 @@ async def map_select_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def map_type_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text or not update.effective_user:
         return MAP_TYPE
+    
+    text = update.message.text
+    
+    # Проверяем навигационные команды
+    navigation_result = await handle_navigation(update, context, text)
+    if navigation_result is not None:
+        return navigation_result
+    
     if context.user_data is None:
         await update.message.reply_text("Ошибка: потерян контекст. Начните заново с /start")
         return MENU
-    text = update.message.text
+    
     user_id = update.effective_user.id
     selected_map = context.user_data.get('selected_map')
     if not selected_map:
         await update.message.reply_text("Ошибка: карта не выбрана. Начните заново с /start.")
         return MENU
+    
     if "Базовая" in text:
         questions = selected_map['basic']
         map_type = "Базовая"
@@ -172,13 +331,16 @@ async def map_type_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Пожалуйста, выберите тип анкеты.", reply_markup=map_type_keyboard)
         return MAP_TYPE
+    
     context.user_data['map_questions'] = questions
     context.user_data['map_type'] = map_type
     context.user_data['map_answers'] = []
     context.user_data['current_q'] = 0
+    save_navigation_state(context, MAP_QUESTIONS, MAP_TYPE)
+    
     await update.message.reply_text(
         f"Вам будет задано {len(questions)} вопросов. Отвечайте честно.\n\n{questions[0]}",
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=navigation_keyboard
     )
     db.set_user_state(user_id, "MAP_QUESTIONS")
     return MAP_QUESTIONS
@@ -186,24 +348,38 @@ async def map_type_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def map_questions_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text or not update.effective_user:
         return MAP_QUESTIONS
+    
+    text = update.message.text
+    
+    # Проверяем навигационные команды
+    navigation_result = await handle_navigation(update, context, text)
+    if navigation_result is not None:
+        return navigation_result
+    
     if context.user_data is None:
         await update.message.reply_text("Ошибка: потерян контекст. Начните заново с /start")
         return MENU
+    
     user_id = update.effective_user.id
-    answer = update.message.text
+    answer = text
     answers = context.user_data.get('map_answers', [])
     questions = context.user_data.get('map_questions', [])
     current_q = context.user_data.get('current_q', 0)
     selected_map = context.user_data.get('selected_map')
     map_type = context.user_data.get('map_type')
+    
     if not questions or not selected_map or not map_type:
         await update.message.reply_text("Ошибка: потерян контекст. Начните заново с /start")
         return MENU
+    
+    # Сохраняем ответ
     answers.append(answer)
     context.user_data['map_answers'] = answers
+    
     if current_q + 1 < len(questions):
         context.user_data['current_q'] = current_q + 1
-        await update.message.reply_text(questions[current_q + 1])
+        next_question = questions[current_q + 1]
+        await update.message.reply_text(next_question, reply_markup=navigation_keyboard)
         return MAP_QUESTIONS
     else:
         await update.message.reply_text("Спасибо за ваши ответы! Формируется психологическая карта...")
@@ -266,6 +442,10 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 1️⃣ Получить консультацию - задайте вопрос психологу
 2️⃣ Создать психологическую карту - пройдите опрос и получите персональную карту
 
+Навигация:
+🔙 Назад - вернуться к предыдущему шагу
+🏠 Главное меню - вернуться в главное меню
+
 Для начала работы отправьте /start
     """
     await update.message.reply_text(help_text)
@@ -275,6 +455,14 @@ def main():
         logging.error("BOT_TOKEN environment variable is not set")
         return
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+    
+    # Обработчик нетекстовых сообщений (должен быть первым!)
+    non_text_handler = MessageHandler(
+        filters.ALL & ~filters.TEXT & ~filters.COMMAND,
+        handle_non_text_message
+    )
+    app.add_handler(non_text_handler)
+    
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
